@@ -24,6 +24,11 @@
 .DS_Store
 *.pem
 
+# local CV data (do not commit)
+/cvs/
+/.cv-cache/
+/data/
+
 # debug
 npm-debug.log*
 yarn-debug.log*

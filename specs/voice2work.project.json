@@ -1,0 +1,265 @@
+{
+  "version": 1,
+  "projectId": "voice2work",
+  "name": "Voice2Work",
+  "summary": "Multi-tenant field service management (FSM) SaaS for appliance repair companies. Web app for office staff + separate mobile app for technicians. Includes scheduling/dispatch, customer/jobs/equipment, invoicing/payments, communications (SMS/voice), and AI agents.",
+  "domainKeywords": [
+    "field service management",
+    "appliance repair",
+    "dispatch",
+    "scheduling",
+    "inventory",
+    "invoicing",
+    "multi-tenant",
+    "row level security",
+    "RLS",
+    "Supabase",
+    "Twilio",
+    "Stripe"
+  ],
+  "techStack": {
+    "frontend": [
+      "TypeScript",
+      "React",
+      "Next.js (App Router)",
+      "Tailwind CSS",
+      "shadcn/ui",
+      "Zod",
+      "React Hook Form",
+      "TanStack Query (React Query)",
+      "Zustand"
+    ],
+    "backend": [
+      "PostgreSQL",
+      "Supabase (Auth, Storage, Realtime)",
+      "Row Level Security (RLS)"
+    ],
+    "mobile": [
+      "React Native",
+      "Expo (mobile app)"
+    ],
+    "integrations": [
+      "Twilio (SMS/Voice)",
+      "Stripe (payments)"
+    ]
+  },
+  "roles": [
+    {
+      "roleId": "fullstack-nextjs-supabase",
+      "title": "Full-stack Engineer (Next.js + Supabase)",
+      "minYearsExperience": 3,
+      "mustHaveSkills": [
+        { "skill": "TypeScript", "weight": 5 },
+        { "skill": "React", "weight": 5 },
+        { "skill": "Next.js", "weight": 4 },
+        { "skill": "SQL", "weight": 3 },
+        { "skill": "PostgreSQL", "weight": 4 },
+        { "skill": "Supabase", "weight": 4 },
+        { "skill": "Row Level Security (RLS)", "weight": 3 }
+      ],
+      "niceToHaveSkills": [
+        { "skill": "Tailwind CSS", "weight": 2 },
+        { "skill": "Zod", "weight": 2 },
+        { "skill": "TanStack Query (React Query)", "weight": 2 },
+        { "skill": "Zustand", "weight": 1 },
+        { "skill": "Node.js", "weight": 2 },
+        { "skill": "REST APIs", "weight": 1 },
+        { "skill": "Prisma", "weight": 1 },
+        { "skill": "Docker", "weight": 1 },
+        { "skill": "CI/CD", "weight": 1 },
+        { "skill": "Vercel", "weight": 1 },
+        { "skill": "React Hook Form", "weight": 1 },
+        { "skill": "Stripe", "weight": 1 },
+        { "skill": "Twilio", "weight": 1 }
+      ],
+      "keywords": [
+        "multi-tenant",
+        "company_id",
+        "RLS policies",
+        "App Router",
+        "server components",
+        "shadcn",
+        "job workflow",
+        "scheduling calendar",
+        "customer management",
+        "supabase auth",
+        "supabase realtime",
+        "supabase storage",
+        "edge functions",
+        "postgrest"
+      ],
+      "responsibilities": [
+        "Build and maintain Next.js features (customers, jobs, scheduling, equipment).",
+        "Design safe data access patterns for multi-tenancy (RLS-aware).",
+        "Integrate payments and communications where needed."
+      ],
+      "defaults": {
+        "salary": { "currency": "USD", "period": "monthly", "min": 0, "max": 8000 },
+        "contractLengthMonths": 6
+      },
+      "scoring": {
+        "weights": {
+          "mustHaveSkills": 0.6,
+          "niceToHaveSkills": 0.2,
+          "experience": 0.1,
+          "budget": 0.05,
+          "contract": 0.05
+        },
+        "hardFilters": {
+          "requireAllMustHaveSkills": false,
+          "minMustHaveMatchRatio": 0.7
+        }
+      }
+    },
+    {
+      "roleId": "ai-agent-rag-engineer",
+      "title": "AI Agent / RAG Engineer (Python + Vector Search)",
+      "minYearsExperience": 3,
+      "mustHaveSkills": [
+        { "skill": "Python", "weight": 5 },
+        { "skill": "FastAPI", "weight": 4 },
+        { "skill": "Machine Learning (scikit-learn)", "weight": 3 },
+        { "skill": "Embeddings / Vector Search", "weight": 4 },
+        { "skill": "PostgreSQL", "weight": 3 }
+      ],
+      "niceToHaveSkills": [
+        { "skill": "pgvector", "weight": 2 },
+        { "skill": "Information retrieval (RAG)", "weight": 2 },
+        { "skill": "Model serving", "weight": 2 },
+        { "skill": "LangChain", "weight": 1 },
+        { "skill": "LlamaIndex", "weight": 1 },
+        { "skill": "LLM evaluation", "weight": 1 }
+      ],
+      "keywords": [
+        "RAG",
+        "vector embeddings",
+        "semantic search",
+        "knowledge base",
+        "ticket history",
+        "tool calling",
+        "prompt engineering",
+        "agents"
+      ],
+      "responsibilities": [
+        "Build offline/online AI services for triage/diagnosis style workflows.",
+        "Create evaluation and feedback loops for model quality."
+      ],
+      "defaults": {
+        "salary": { "currency": "USD", "period": "monthly", "min": 0, "max": 9000 },
+        "contractLengthMonths": 6
+      },
+      "scoring": {
+        "weights": {
+          "mustHaveSkills": 0.6,
+          "niceToHaveSkills": 0.2,
+          "experience": 0.1,
+          "budget": 0.05,
+          "contract": 0.05
+        },
+        "hardFilters": {
+          "requireAllMustHaveSkills": false,
+          "minMustHaveMatchRatio": 0.65
+        }
+      }
+    },
+    {
+      "roleId": "mobile-react-native",
+      "title": "Mobile Engineer (React Native / Expo)",
+      "minYearsExperience": 2,
+      "mustHaveSkills": [
+        { "skill": "React Native", "weight": 5 },
+        { "skill": "TypeScript", "weight": 4 },
+        { "skill": "Offline sync", "weight": 3 }
+      ],
+      "niceToHaveSkills": [
+        { "skill": "Expo", "weight": 2 },
+        { "skill": "Supabase", "weight": 2 },
+        { "skill": "TanStack Query (React Query)", "weight": 1 },
+        { "skill": "React Navigation", "weight": 1 },
+        { "skill": "AsyncStorage", "weight": 1 },
+        { "skill": "SQLite", "weight": 1 },
+        { "skill": "Push notifications", "weight": 1 }
+      ],
+      "keywords": [
+        "technician app",
+        "offline mode",
+        "sync",
+        "photos upload",
+        "offline-first",
+        "background sync"
+      ],
+      "responsibilities": [
+        "Build technician mobile workflows (jobs list, job details, PVR submission).",
+        "Implement offline-first sync and reliable background uploads."
+      ],
+      "defaults": {
+        "salary": { "currency": "USD", "period": "monthly", "min": 0, "max": 7000 },
+        "contractLengthMonths": 6
+      },
+      "scoring": {
+        "weights": {
+          "mustHaveSkills": 0.65,
+          "niceToHaveSkills": 0.15,
+          "experience": 0.1,
+          "budget": 0.05,
+          "contract": 0.05
+        },
+        "hardFilters": {
+          "requireAllMustHaveSkills": false,
+          "minMustHaveMatchRatio": 0.6
+        }
+      }
+    }
+  ],
+  "skillAliases": {
+    "TypeScript": ["type script"],
+    "React": ["reactjs", "react js", "react.js"],
+    "Next.js": ["nextjs", "next js", "next.js", "next-js"],
+    "SQL": ["postgresql", "postgres", "mysql", "sql server", "mssql", "pl/sql", "t-sql"],
+    "PostgreSQL": ["postgres", "postgre sql"],
+    "Supabase": ["supabase", "supabase.io"],
+    "Row Level Security (RLS)": ["rls", "row level security", "row-level security", "rls policies", "rls policy"],
+    "TanStack Query (React Query)": ["react-query", "react query", "reactquery", "tanstack query", "tanstack react query"],
+    "Tailwind CSS": ["tailwindcss", "tailwind"],
+    "Zod": ["zod"],
+    "Zustand": ["zustand"],
+    "React Native": ["react-native", "expo", "expo router"],
+    "Offline sync": ["offline sync", "offline-first", "offline first", "background sync"],
+    "Node.js": ["nodejs", "node js", "node.js", "express", "express.js", "nestjs", "nest.js"],
+    "REST APIs": ["rest api", "restful api", "rest", "api", "apis", "http api"],
+    "Prisma": ["prisma", "prisma orm"],
+    "Docker": ["docker", "container", "containers", "containerization"],
+    "CI/CD": ["ci/cd", "cicd", "ci cd", "github actions", "gitlab ci", "azure devops"],
+    "Vercel": ["vercel"],
+    "React Hook Form": ["react hook form", "react-hook-form", "rhf"],
+    "Machine Learning (scikit-learn)": ["machine learning", "ml", "scikit-learn", "sklearn", "scikit learn"],
+    "Embeddings / Vector Search": [
+      "embeddings",
+      "vector search",
+      "vector database",
+      "vector db",
+      "semantic search",
+      "faiss",
+      "qdrant",
+      "weaviate",
+      "pinecone",
+      "milvus",
+      "chroma",
+      "pgvector"
+    ],
+    "pgvector": ["pgvector", "postgres vector", "postgresql vector", "vector extension"],
+    "Information retrieval (RAG)": ["rag", "retrieval augmented generation", "retrieval-augmented generation", "information retrieval"],
+    "Model serving": ["model serving", "inference", "deployment", "serving", "triton", "onnx"],
+    "LangChain": ["langchain"],
+    "LlamaIndex": ["llamaindex", "llama index"],
+    "LLM evaluation": ["llm evaluation", "evals", "evaluation", "benchmarking"],
+    "Expo": ["expo", "expo go", "expo router"],
+    "React Navigation": ["react navigation", "react-navigation"],
+    "AsyncStorage": ["asyncstorage", "async storage"],
+    "SQLite": ["sqlite", "react native sqlite", "expo sqlite"],
+    "Push notifications": ["push notifications", "push notification", "fcm", "firebase cloud messaging", "apns"],
+    "FastAPI": ["fast api"]
+  }
+}
+
+
