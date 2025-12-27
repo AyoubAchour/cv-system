@@ -546,6 +546,14 @@ export async function GET(request: Request) {
     parseWarnings: string[];
     contacts: CandidateContacts;
     yearsExperience: number | null;
+    relevantExperience: ReturnType<typeof extractFeatures>["relevantExperience"];
+    seniority: ReturnType<typeof extractFeatures>["seniority"];
+    skillDepth: ReturnType<typeof extractFeatures>["skillDepth"];
+    recencyAnalysis: ReturnType<typeof extractFeatures>["recencyAnalysis"];
+    redFlags: ReturnType<typeof extractFeatures>["redFlags"];
+    projectScale: ReturnType<typeof extractFeatures>["projectScale"];
+    education: ReturnType<typeof extractFeatures>["education"];
+    parseQuality: ReturnType<typeof extractFeatures>["parseQuality"];
     mustHave: ReturnType<typeof extractFeatures>["mustHave"];
     niceToHave: ReturnType<typeof extractFeatures>["niceToHave"];
     keywordHits: ReturnType<typeof extractFeatures>["keywordHits"];
@@ -576,6 +584,8 @@ export async function GET(request: Request) {
       niceToHaveSkills: role.niceToHaveSkills,
       keywords: role.keywords,
       skillAliases: project.skillAliases,
+      experienceRelevanceKeywords: role.experienceRelevanceKeywords,
+      seniorityIndicators: role.seniorityIndicators,
     });
 
     let annotationUrls: string[] = [];
@@ -593,6 +603,13 @@ export async function GET(request: Request) {
       mustHave: features.mustHave,
       niceToHave: features.niceToHave,
       candidateYearsExperience: features.yearsExperience,
+      relevantExperience: features.relevantExperience,
+      skillDepth: features.skillDepth,
+      seniority: features.seniority,
+      recencyAnalysis: features.recencyAnalysis,
+      redFlags: features.redFlags,
+      projectScale: features.projectScale,
+      education: features.education,
       weights: role.scoring.weights,
     });
 
@@ -605,6 +622,14 @@ export async function GET(request: Request) {
       parseWarnings: [...text.parseWarnings, ...features.warnings],
       contacts,
       yearsExperience: features.yearsExperience,
+      relevantExperience: features.relevantExperience,
+      seniority: features.seniority,
+      skillDepth: features.skillDepth,
+      recencyAnalysis: features.recencyAnalysis,
+      redFlags: features.redFlags,
+      projectScale: features.projectScale,
+      education: features.education,
+      parseQuality: features.parseQuality,
       mustHave: features.mustHave,
       niceToHave: features.niceToHave,
       keywordHits: features.keywordHits,

@@ -47,7 +47,7 @@
     {
       "roleId": "fullstack-nextjs-supabase",
       "title": "Full-stack Engineer (Next.js + Supabase)",
-      "minYearsExperience": 3,
+      "minYearsExperience": 5,
       "mustHaveSkills": [
         { "skill": "TypeScript", "weight": 5 },
         { "skill": "React", "weight": 5 },
@@ -88,6 +88,18 @@
         "edge functions",
         "postgrest"
       ],
+      "experienceRelevanceKeywords": [
+        "developer", "développeur", "développeuse", "engineer", "ingénieur",
+        "full stack", "fullstack", "full-stack", "frontend", "front-end", "front end",
+        "backend", "back-end", "back end", "web", "software", "logiciel",
+        "react", "next", "nextjs", "node", "javascript", "typescript",
+        "vue", "angular", "express", "nestjs", "programming", "développement"
+      ],
+      "seniorityIndicators": {
+        "senior": ["senior", "sr.", "sr ", "lead", "principal", "staff", "architect", "chef", "responsable", "head"],
+        "mid": ["mid", "middle", "confirmed", "confirmé", "intermédiaire"],
+        "junior": ["junior", "jr.", "jr ", "entry", "débutant", "trainee", "stagiaire", "intern", "stage", "apprenti"]
+      },
       "responsibilities": [
         "Build and maintain Next.js features (customers, jobs, scheduling, equipment).",
         "Design safe data access patterns for multi-tenancy (RLS-aware).",
@@ -99,15 +111,19 @@
       },
       "scoring": {
         "weights": {
-          "mustHaveSkills": 0.6,
-          "niceToHaveSkills": 0.2,
-          "experience": 0.1,
-          "budget": 0.05,
-          "contract": 0.05
+          "mustHaveSkills": 0.28,
+          "niceToHaveSkills": 0.10,
+          "experience": 0.20,
+          "skillDepth": 0.10,
+          "seniority": 0.10,
+          "recency": 0.08,
+          "projectScale": 0.08,
+          "education": 0.06
         },
         "hardFilters": {
           "requireAllMustHaveSkills": false,
-          "minMustHaveMatchRatio": 0.7
+          "minMustHaveMatchRatio": 0.6,
+          "minRelevantExperienceYears": 3
         }
       }
     },

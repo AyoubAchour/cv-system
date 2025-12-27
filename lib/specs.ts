@@ -10,6 +10,12 @@ export type RoleSkill = {
   weight: number;
 };
 
+export type SeniorityIndicators = {
+  senior: string[];
+  mid: string[];
+  junior: string[];
+};
+
 export type RoleSpec = {
   roleId: string;
   title: string;
@@ -17,6 +23,8 @@ export type RoleSpec = {
   mustHaveSkills: RoleSkill[];
   niceToHaveSkills: RoleSkill[];
   keywords: string[];
+  experienceRelevanceKeywords?: string[];
+  seniorityIndicators?: SeniorityIndicators;
   responsibilities: string[];
   defaults: {
     salary: { currency: string; period: SalaryPeriod; min: number; max: number };
@@ -27,12 +35,15 @@ export type RoleSpec = {
       mustHaveSkills: number;
       niceToHaveSkills: number;
       experience: number;
-      budget: number;
-      contract: number;
+      skillDepth?: number;
+      seniority?: number;
+      budget?: number;
+      contract?: number;
     };
     hardFilters?: {
       minMustHaveMatchRatio?: number;
       requireAllMustHaveSkills?: boolean;
+      minRelevantExperienceYears?: number;
     };
   };
 };

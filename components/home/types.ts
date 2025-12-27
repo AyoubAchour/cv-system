@@ -1,4 +1,14 @@
 import type { HardFilters, KeywordHit, ScoreResult, SkillMatch } from "@/lib/scoring"
+import type {
+  EducationAnalysis,
+  ParseQuality,
+  ProjectScaleSignals,
+  RecencyAnalysis,
+  RedFlagAnalysis,
+  RelevantExperienceResult,
+  SeniorityResult,
+  SkillDepthResult,
+} from "@/lib/features"
 
 export type ApiSpecsResponse = {
   projects: {
@@ -47,6 +57,14 @@ export type ApiRankResponse = {
       otherLinks: string[]
     }
     yearsExperience: number | null
+    relevantExperience: RelevantExperienceResult
+    seniority: SeniorityResult
+    skillDepth: SkillDepthResult[]
+    recencyAnalysis: RecencyAnalysis
+    redFlags: RedFlagAnalysis
+    projectScale: ProjectScaleSignals
+    education: EducationAnalysis
+    parseQuality: ParseQuality
     mustHave: SkillMatch[]
     niceToHave: SkillMatch[]
     keywordHits: KeywordHit[]
@@ -57,5 +75,3 @@ export type ApiRankResponse = {
 }
 
 export type RankedCandidate = ApiRankResponse["candidates"][number]
-
-
