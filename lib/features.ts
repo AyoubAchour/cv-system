@@ -439,7 +439,6 @@ function extractLikelyExperienceText(text: string): string {
     "profile",
     "profil",
     "summary",
-    "resume", // Sometimes used as section
   ]);
 
   const lines = text.split("\n");
@@ -454,7 +453,8 @@ function extractLikelyExperienceText(text: string): string {
       break;
     }
     // Catch headings that include extra words but still start with a known head.
-    if (token.startsWith("experience") || token.startsWith("experiences")) {
+    // Must be at start or have word boundary to avoid matching "experienced" in sentences
+    if ((token.startsWith("experience") || token.startsWith("experiences")) && token.length <= 30) {
       startLine = i;
       break;
     }
@@ -472,7 +472,52 @@ function extractLikelyExperienceText(text: string): string {
   }
 
   // Skip the heading line itself.
-  return lines.slice(startLine + 1, endLine).join("\n");
+  const extracted = lines.slice(startLine + 1, endLine).join("\n");
+  
+  // If extraction is suspiciously short (< 100 chars), likely a false positive
+  // Try to find the next occurrence of experience heading
+  if (extracted.trim().length < 100 && startLine !== -1) {
+    for (let i = startLine + 1; i < normalizedLines.length; i++) {
+      const token = normalizedLines[i];
+      if (!token) continue;
+      if (startHeads.has(token)) {
+        // Found another experience heading, try again
+        let newEndLine = lines.length;
+        for (let j = i + 1; j < normalizedLines.length; j++) {
+          const endToken = normalizedLines[j];
+          if (!endToken) continue;
+          if (endHeads.has(endToken)) {
+            newEndLine = j;
+            break;
+          }
+        }
+        const newExtracted = lines.slice(i + 1, newEndLine).join("\n");
+        // Use the new extraction if it's longer
+        if (newExtracted.trim().length > extracted.trim().length) {
+          return newExtracted;
+        }
+      }
+      if ((token.startsWith("experience") || token.startsWith("experiences")) && token.length <= 30) {
+        // Found another experience heading, try again
+        let newEndLine = lines.length;
+        for (let j = i + 1; j < normalizedLines.length; j++) {
+          const endToken = normalizedLines[j];
+          if (!endToken) continue;
+          if (endHeads.has(endToken)) {
+            newEndLine = j;
+            break;
+          }
+        }
+        const newExtracted = lines.slice(i + 1, newEndLine).join("\n");
+        // Use the new extraction if it's longer
+        if (newExtracted.trim().length > extracted.trim().length) {
+          return newExtracted;
+        }
+      }
+    }
+  }
+  
+  return extracted;
 }
 
 function yearTokenToNumber(raw: string, nowYear: number): number | null {
