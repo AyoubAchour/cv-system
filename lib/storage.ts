@@ -15,7 +15,16 @@ export function isCandidateId(value: string): boolean {
   return CANDIDATE_ID_RE.test(value);
 }
 
-function textCachePath(candidateId: string): string {
+function isSafeCacheRoleId(roleId: string): boolean {
+  // Prevent path traversal: SAFE_ID_RE alone would allow "." and "..".
+  return isSafeId(roleId) && roleId !== "." && roleId !== "..";
+}
+
+function roleTextCachePath(roleId: string, candidateId: string): string {
+  return path.join(CACHE_ROOT, "roles", roleId, "text", `${candidateId}.json`);
+}
+
+function legacyTextCachePath(candidateId: string): string {
   return path.join(CACHE_ROOT, "text", `${candidateId}.json`);
 }
 
@@ -57,15 +66,33 @@ export type TextCacheRecordV3 = {
 
 export type TextCacheRecord = TextCacheRecordV1 | TextCacheRecordV2 | TextCacheRecordV3;
 
-export async function readTextCache(candidateId: string): Promise<TextCacheRecord | null> {
+export async function readTextCache(roleId: string, candidateId: string): Promise<TextCacheRecord | null> {
+  if (!isSafeCacheRoleId(roleId)) return null;
   if (!isCandidateId(candidateId)) return null;
-  return readJsonIfExists<TextCacheRecord>(textCachePath(candidateId));
+
+  const perRolePath = roleTextCachePath(roleId, candidateId);
+  const hit = await readJsonIfExists<TextCacheRecord>(perRolePath);
+  if (hit) return hit;
+
+  // Back-compat: older installs stored all text caches in a shared directory.
+  const legacy = await readJsonIfExists<TextCacheRecord>(legacyTextCachePath(candidateId));
+  if (!legacy) return null;
+
+  // Best-effort migration into the per-role cache path.
+  try {
+    await writeJsonAtomic(perRolePath, legacy);
+  } catch {
+    // Ignore migration errors; we can still use the legacy cache in-memory.
+  }
+
+  return legacy;
 }
 
-export async function writeTextCache(record: TextCacheRecordV3): Promise<void> {
+export async function writeTextCache(roleId: string, record: TextCacheRecordV3): Promise<void> {
+  if (!isSafeCacheRoleId(roleId)) throw new Error("Invalid roleId");
   if (!isCandidateId(record.candidateId)) throw new Error("Invalid candidateId");
   if (record.schemaVersion !== TEXT_CACHE_SCHEMA_VERSION) throw new Error("Invalid text cache schemaVersion");
-  await writeJsonAtomic(textCachePath(record.candidateId), record);
+  await writeJsonAtomic(roleTextCachePath(roleId, record.candidateId), record);
 }
 
 

@@ -133,12 +133,12 @@
       "minYearsExperience": 3,
       "mustHaveSkills": [
         { "skill": "Python", "weight": 5 },
-        { "skill": "FastAPI", "weight": 4 },
         { "skill": "Machine Learning (scikit-learn)", "weight": 3 },
         { "skill": "Embeddings / Vector Search", "weight": 4 },
         { "skill": "PostgreSQL", "weight": 3 }
       ],
       "niceToHaveSkills": [
+        { "skill": "FastAPI", "weight": 2 },
         { "skill": "pgvector", "weight": 2 },
         { "skill": "Information retrieval (RAG)", "weight": 2 },
         { "skill": "Model serving", "weight": 2 },
@@ -156,6 +156,20 @@
         "prompt engineering",
         "agents"
       ],
+      "experienceRelevanceKeywords": [
+        "ai", "ml", "machine learning", "deep learning", "data science", "data scientist",
+        "nlp", "llm", "rag", "retrieval", "information retrieval",
+        "embeddings", "vector", "vector search", "vector database", "pgvector",
+        "mlops", "model serving", "inference", "training",
+        "python", "pytorch", "tensorflow", "scikit", "sklearn",
+        "langchain", "llamaindex", "faiss", "qdrant", "weaviate", "pinecone", "milvus",
+        "evaluation", "evals"
+      ],
+      "seniorityIndicators": {
+        "senior": ["senior", "sr.", "sr ", "lead", "principal", "staff", "architect", "head"],
+        "mid": ["mid", "confirmed", "confirmé", "intermédiaire"],
+        "junior": ["junior", "jr.", "jr ", "intern", "internship", "stagiaire", "stage", "trainee", "entry"]
+      },
       "responsibilities": [
         "Build offline/online AI services for triage/diagnosis style workflows.",
         "Create evaluation and feedback loops for model quality."
@@ -167,14 +181,13 @@
       "scoring": {
         "weights": {
           "mustHaveSkills": 0.6,
-          "niceToHaveSkills": 0.2,
-          "experience": 0.1,
-          "budget": 0.05,
-          "contract": 0.05
+          "niceToHaveSkills": 0.25,
+          "experience": 0.15
         },
         "hardFilters": {
           "requireAllMustHaveSkills": false,
-          "minMustHaveMatchRatio": 0.65
+          "minMustHaveMatchRatio": 0.65,
+          "minRelevantExperienceYears": 1
         }
       }
     },

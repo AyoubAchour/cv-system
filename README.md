@@ -11,6 +11,7 @@ A small web app that **parses CVs (PDF)** and **ranks candidates** against a rol
 
 ## Privacy / data
 - Put local CV PDFs under `cvs/` (example: `cvs/<roleId>/*.pdf`).
+- Extracted text cache is stored per role under `.cv-cache/v1/roles/<roleId>/text/`.
 - `cvs/` and `.cv-cache/` are **gitignored** and **will not be committed**.
 
 ## Quick start

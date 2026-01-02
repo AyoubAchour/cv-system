@@ -81,6 +81,31 @@ type CacheExtractionMeta = {
   ocrScale?: number;
 };
 
+function looksGarbledPdfText(normalizedText: string): boolean {
+  // Some PDFs extract as spaced-out characters (e.g. "I n g é n i e u r").
+  // That text can be long enough to avoid the existing "looks scanned" heuristic,
+  // but keyword/skill matching becomes unreliable.
+  const tokens = normalizedText.split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) return false;
+
+  const singleLetterTokens = tokens.filter((t) => /^\p{L}$/u.test(t)).length;
+  const singleLetterRatio = singleLetterTokens / tokens.length;
+
+  const lines = normalizedText.split("\n");
+  let spacedLines = 0;
+  for (const line of lines) {
+    const parts = line.trim().split(/\s+/).filter(Boolean);
+    if (parts.length < 8) continue;
+    const singleLetters = parts.filter((p) => /^\p{L}$/u.test(p)).length;
+    if (singleLetters / parts.length > 0.6) {
+      spacedLines += 1;
+      if (spacedLines >= 2) break;
+    }
+  }
+
+  return singleLetterRatio > 0.25 || spacedLines >= 2;
+}
+
 type CandidateContacts = {
   emails: string[];
   phones: Array<{ e164: string; display: string }>;
@@ -380,8 +405,8 @@ function buildOcrCachedWarning(meta: CacheExtractionMeta): string | null {
   return `Scanned PDF: OCR cached (${langs}).`;
 }
 
-async function getTextFromCache(candidateId: string): Promise<CachedTextHit | null> {
-  const cached = await readTextCache(candidateId);
+async function getTextFromCache(roleId: string, candidateId: string): Promise<CachedTextHit | null> {
+  const cached = await readTextCache(roleId, candidateId);
   if (!cached) return null;
 
   const parseWarnings: string[] = [];
@@ -403,7 +428,7 @@ async function getTextFromCache(candidateId: string): Promise<CachedTextHit | nu
   const upgradedNormalized = normalizeText(cached.normalizedText ?? "");
 
   try {
-    await writeTextCache({
+    await writeTextCache(roleId, {
       schemaVersion: TEXT_CACHE_SCHEMA_VERSION,
       candidateId,
       numpages: cached.numpages ?? null,
@@ -431,12 +456,13 @@ async function maybeRunOcr(params: {
   buffer: Buffer;
   normalizedFromPdf: string;
   numpages: number | null;
+  forceOcr: boolean;
 }): Promise<{ normalizedText: string; meta: CacheExtractionMeta; parseWarnings: string[] }> {
   const minTextCharsForOcr = 200;
   const hasPages = (params.numpages ?? 0) > 0;
   const looksScanned = hasPages && params.normalizedFromPdf.length < minTextCharsForOcr;
 
-  if (!looksScanned) {
+  if (!looksScanned && !params.forceOcr) {
     return { normalizedText: params.normalizedFromPdf, meta: { extractionMethod: "pdf" }, parseWarnings: [] };
   }
 
@@ -448,40 +474,64 @@ async function maybeRunOcr(params: {
   try {
     const ocr = await ocrPdfText(params.buffer, { languages, tessdataDir, maxPages, scale });
     const ocrNormalized = normalizeText(ocr.text);
-    if (ocrNormalized.trim().length > params.normalizedFromPdf.trim().length) {
+
+    const ocrLooksGarbled = looksGarbledPdfText(ocrNormalized);
+    const pdfLooksGarbled = looksGarbledPdfText(params.normalizedFromPdf);
+
+    const shouldPreferOcr =
+      ocrNormalized.trim().length > params.normalizedFromPdf.trim().length ||
+      (params.forceOcr && pdfLooksGarbled && !ocrLooksGarbled && ocrNormalized.trim().length >= 100);
+
+    if (shouldPreferOcr) {
       return {
         normalizedText: ocrNormalized,
         meta: { extractionMethod: "ocr", ocrLanguages: languages, ocrPages: ocr.usedPages, ocrScale: scale },
-        parseWarnings: [`Scanned PDF detected: OCR used (${languages.join("+")}).`],
+        parseWarnings: [
+          params.forceOcr
+            ? `PDF text extraction looks garbled: OCR used (${languages.join("+")}).`
+            : `Scanned PDF detected: OCR used (${languages.join("+")}).`,
+        ],
       };
     }
 
     return {
       normalizedText: params.normalizedFromPdf,
       meta: { extractionMethod: "pdf" },
-      parseWarnings: ["Scanned PDF detected: OCR ran but did not improve extracted text."],
+      parseWarnings: [
+        params.forceOcr
+          ? "PDF text extraction looks garbled: OCR ran but did not improve extracted text."
+          : "Scanned PDF detected: OCR ran but did not improve extracted text.",
+      ],
     };
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     return {
       normalizedText: params.normalizedFromPdf,
       meta: { extractionMethod: "pdf" },
-      parseWarnings: [`Scanned PDF detected but OCR failed: ${message}`],
+      parseWarnings: [
+        params.forceOcr
+          ? `PDF text extraction looks garbled but OCR failed: ${message}`
+          : `Scanned PDF detected but OCR failed: ${message}`,
+      ],
     };
   }
 }
 
 async function getCachedOrExtractedText(params: {
+  roleId: string;
   candidateId: string;
   buffer: Buffer;
   fileName: string;
   parsingErrors: string[];
 }): Promise<CachedTextResult | null> {
-  const cachedHit = await getTextFromCache(params.candidateId);
+  const cachedHit = await getTextFromCache(params.roleId, params.candidateId);
   if (cachedHit) {
     const minTextCharsForOcr = 200;
     const looksScanned = cachedHit.normalizedTextChars < minTextCharsForOcr;
-    const shouldBypassCache = looksScanned && cachedHit.meta.extractionMethod !== "ocr";
+    const looksGarbled = looksGarbledPdfText(cachedHit.normalizedText);
+    const shouldBypassCache =
+      (looksScanned && cachedHit.meta.extractionMethod !== "ocr") ||
+      (looksGarbled && cachedHit.meta.extractionMethod !== "ocr");
 
     if (!shouldBypassCache) {
       const { meta: _meta, ...result } = cachedHit;
@@ -493,10 +543,17 @@ async function getCachedOrExtractedText(params: {
     const parsed = await extractPdfText(params.buffer);
     const normalizedFromPdf = normalizeText(parsed.text);
 
-    const ocrResult = await maybeRunOcr({ buffer: params.buffer, normalizedFromPdf, numpages: parsed.numpages });
+    const forceOcr = looksGarbledPdfText(normalizedFromPdf);
+
+    const ocrResult = await maybeRunOcr({
+      buffer: params.buffer,
+      normalizedFromPdf,
+      numpages: parsed.numpages,
+      forceOcr,
+    });
     const normalized = ocrResult.normalizedText;
 
-    await writeTextCache({
+    await writeTextCache(params.roleId, {
       schemaVersion: TEXT_CACHE_SCHEMA_VERSION,
       candidateId: params.candidateId,
       numpages: parsed.numpages,
@@ -571,6 +628,7 @@ export async function GET(request: Request) {
     seen.add(candidateId);
 
     const text = await getCachedOrExtractedText({
+      roleId,
       candidateId,
       buffer,
       fileName: pdf.fileName,

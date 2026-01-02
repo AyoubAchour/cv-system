@@ -262,9 +262,67 @@ function isPresentToken(raw: string): boolean {
     t === "ongoing" ||
     t === "now" ||
     t === "maintenant" ||
+    t === "actuellement" ||
     t === "aujourd'huit" || // OCR typo
     t === "aujoud'hui" // OCR typo
   );
+}
+
+function looksLikeSectionHeadingLine(rawLine: string): boolean {
+  const line = rawLine.trim();
+  if (!line) return false;
+  if (line.length > 100) return false;
+
+  const words = line.split(/\s+/).filter(Boolean);
+  if (words.length > 10) return false;
+
+  // Headings are often short and either mostly uppercase or “Title Case”.
+  const letters = line.match(/[A-Za-zÀ-ÿ]/g)?.join("") ?? "";
+  const upper = letters.replaceAll(/[a-zà-ÿ]/g, "");
+  const upperRatio = letters.length > 0 ? upper.length / letters.length : 0;
+  return upperRatio >= 0.7 || words.length <= 5;
+}
+
+function tokenMatchesAnyHeading(token: string, headings: Set<string>): boolean {
+  if (!token) return false;
+  if (headings.has(token)) return true;
+
+  // OCR/multi-column extraction can duplicate headings on the same line:
+  // e.g. "experienceprofessionnelleexperienceprofessionnelle".
+  for (const h of headings) {
+    if (h.length >= 6 && token.includes(h)) return true;
+  }
+  return false;
+}
+
+function looksLikeSkillListLine(rawLine: string): boolean {
+  const line = rawLine.trim();
+  if (!line) return false;
+  if (line.length > 140) return true;
+
+  // Heuristic: tech stacks are usually comma/pipe separated lists.
+  const separators = (line.match(/[,|/•]/g) ?? []).length;
+  const wordCount = line.split(/\s+/).filter(Boolean).length;
+  if (separators >= 3 && wordCount >= 4) return true;
+
+  // Many stacks also contain lots of short tokens.
+  const tokens = line.split(/[,|/•]/g).map((t) => t.trim()).filter(Boolean);
+  if (tokens.length >= 5) {
+    const shortTokens = tokens.filter((t) => t.length <= 6).length;
+    if (shortTokens / tokens.length >= 0.6) return true;
+  }
+
+  return false;
+}
+
+function isInternshipOrAcademicRoleText(raw: string): boolean {
+  const t = raw
+    .toLowerCase()
+    .normalize("NFKD")
+    .replaceAll(/\p{Diacritic}/gu, "");
+
+  // Treat internships and academic end-of-studies projects as non full-time professional experience.
+  return /\b(stage|stagiaire|intern(?:ship)?|trainee|alternance|apprentissage|apprenti|pfe|sfe|fin\s+d['’]?(?:etudes|etudes))\b/i.test(t);
 }
 
 function normalizeMonthToken(raw: string): string {
@@ -387,6 +445,54 @@ function normalizeHeadingToken(line: string): string {
   }
 }
 
+function isExperienceStartHeading(line: string, token: string, startHeads: Set<string>): boolean {
+  if (!looksLikeSectionHeadingLine(line)) return false;
+  if (tokenMatchesAnyHeading(token, startHeads)) return true;
+  return (token.startsWith("experience") || token.startsWith("experiences")) && token.length <= 60;
+}
+
+function isExperienceEndHeading(line: string, token: string, endHeads: Set<string>): boolean {
+  return looksLikeSectionHeadingLine(line) && tokenMatchesAnyHeading(token, endHeads);
+}
+
+function findExperienceSectionRange(
+  lines: string[],
+  normalizedLines: string[],
+  startHeads: Set<string>,
+  endHeads: Set<string>,
+  fromIndex: number,
+): { startLine: number; endLine: number } | null {
+  let startLine = -1;
+
+  for (let i = Math.max(0, fromIndex); i < normalizedLines.length; i++) {
+    const token = normalizedLines[i] ?? "";
+    if (!token) continue;
+    if (isExperienceStartHeading(lines[i] ?? "", token, startHeads)) {
+      startLine = i;
+      break;
+    }
+  }
+
+  if (startLine === -1) return null;
+
+  let endLine = lines.length;
+  for (let i = startLine + 1; i < normalizedLines.length; i++) {
+    const token = normalizedLines[i] ?? "";
+    if (!token) continue;
+    if (isExperienceEndHeading(lines[i] ?? "", token, endHeads)) {
+      endLine = i;
+      break;
+    }
+  }
+
+  return { startLine, endLine };
+}
+
+function extractSectionBody(lines: string[], startLine: number, endLine: number): string {
+  // Skip the heading line itself.
+  return lines.slice(startLine + 1, endLine).join("\n");
+}
+
 function extractLikelyExperienceText(text: string): string {
   // Many CVs include unrelated dates (education, birth year, etc.).
   // Try to focus on the Experience section first. Fall back to full text.
@@ -444,76 +550,26 @@ function extractLikelyExperienceText(text: string): string {
   const lines = text.split("\n");
   const normalizedLines = lines.map(normalizeHeadingToken);
 
-  let startLine = -1;
-  for (let i = 0; i < normalizedLines.length; i++) {
-    const token = normalizedLines[i];
-    if (!token) continue;
-    if (startHeads.has(token)) {
-      startLine = i;
-      break;
-    }
-    // Catch headings that include extra words but still start with a known head.
-    // Must be at start or have word boundary to avoid matching "experienced" in sentences
-    if ((token.startsWith("experience") || token.startsWith("experiences")) && token.length <= 30) {
-      startLine = i;
-      break;
-    }
-  }
-  if (startLine === -1) return text;
+  const primary = findExperienceSectionRange(lines, normalizedLines, startHeads, endHeads, 0);
+  if (!primary) return text;
 
-  let endLine = lines.length;
-  for (let i = startLine + 1; i < normalizedLines.length; i++) {
-    const token = normalizedLines[i];
-    if (!token) continue;
-    if (endHeads.has(token)) {
-      endLine = i;
-      break;
-    }
-  }
-
-  // Skip the heading line itself.
-  const extracted = lines.slice(startLine + 1, endLine).join("\n");
+  const extracted = extractSectionBody(lines, primary.startLine, primary.endLine);
   
   // If extraction is suspiciously short (< 100 chars), likely a false positive
   // Try to find the next occurrence of experience heading
-  if (extracted.trim().length < 100 && startLine !== -1) {
-    for (let i = startLine + 1; i < normalizedLines.length; i++) {
-      const token = normalizedLines[i];
-      if (!token) continue;
-      if (startHeads.has(token)) {
-        // Found another experience heading, try again
-        let newEndLine = lines.length;
-        for (let j = i + 1; j < normalizedLines.length; j++) {
-          const endToken = normalizedLines[j];
-          if (!endToken) continue;
-          if (endHeads.has(endToken)) {
-            newEndLine = j;
-            break;
-          }
-        }
-        const newExtracted = lines.slice(i + 1, newEndLine).join("\n");
-        // Use the new extraction if it's longer
-        if (newExtracted.trim().length > extracted.trim().length) {
-          return newExtracted;
-        }
-      }
-      if ((token.startsWith("experience") || token.startsWith("experiences")) && token.length <= 30) {
-        // Found another experience heading, try again
-        let newEndLine = lines.length;
-        for (let j = i + 1; j < normalizedLines.length; j++) {
-          const endToken = normalizedLines[j];
-          if (!endToken) continue;
-          if (endHeads.has(endToken)) {
-            newEndLine = j;
-            break;
-          }
-        }
-        const newExtracted = lines.slice(i + 1, newEndLine).join("\n");
-        // Use the new extraction if it's longer
-        if (newExtracted.trim().length > extracted.trim().length) {
-          return newExtracted;
-        }
-      }
+
+  if (extracted.trim().length < 100) {
+    const secondary = findExperienceSectionRange(
+      lines,
+      normalizedLines,
+      startHeads,
+      endHeads,
+      primary.startLine + 1,
+    );
+
+    if (secondary) {
+      const alt = extractSectionBody(lines, secondary.startLine, secondary.endLine);
+      if (alt.trim().length > extracted.trim().length) return alt;
     }
   }
   
@@ -972,26 +1028,65 @@ function extractDateIntervals(text: string): MonthInterval[] {
   ];
 }
 
-export function estimateYearsExperience(text: string): number | null {
-  const explicit = parseExplicitYearsExperience(text);
-  if (explicit !== null) return explicit;
-
-  const scoped = extractLikelyExperienceText(text);
-  let intervals = extractDateIntervals(scoped);
-  // If we fail to detect any date interval in the scoped "Experience" section, fall back to full text.
-  // This helps with multi-column PDFs where headings/sections can be interleaved in extraction order.
-  if (intervals.length === 0 && scoped !== text) {
-    intervals = extractDateIntervals(text);
-  }
-  if (intervals.length === 0) return null;
-
-  const merged = mergeIntervals(intervals);
-  const totalMonths = merged.reduce((sum, i) => sum + (i.end - i.start), 0);
+function monthsToYears(totalMonths: number): number | null {
   const years = totalMonths / 12;
   if (!Number.isFinite(years)) return null;
   if (years < 0) return null;
   if (years > 50) return 50;
   return Math.round(years * 10) / 10;
+}
+
+function estimateProfessionalYearsFromRoles(roles: ParsedRole[]): number | null {
+  const professionalIntervals: MonthInterval[] = [];
+  for (const r of roles) {
+    const blob = `${r.title}\n${r.textBlock}`;
+    if (isInternshipOrAcademicRoleText(blob)) continue;
+    pushInterval(professionalIntervals, r.startIndex, r.endIndex);
+  }
+
+  if (professionalIntervals.length === 0) return 0;
+  const merged = mergeIntervals(professionalIntervals);
+  const totalMonths = merged.reduce((sum, i) => sum + (i.end - i.start), 0);
+  return monthsToYears(totalMonths);
+}
+
+function estimateProfessionalYearsFromIntervals(params: {
+  scoped: string;
+  fullText: string;
+}): number | null {
+  let intervals = extractDateIntervals(params.scoped);
+  if (intervals.length === 0 && params.scoped !== params.fullText) {
+    intervals = extractDateIntervals(params.fullText);
+  }
+
+  if (intervals.length === 0) return null;
+  if (isInternshipOrAcademicRoleText(params.scoped)) return 0;
+
+  const merged = mergeIntervals(intervals);
+  const totalMonths = merged.reduce((sum, i) => sum + (i.end - i.start), 0);
+  return monthsToYears(totalMonths);
+}
+
+export function estimateYearsExperience(text: string): number | null {
+  // We only count full-time professional experience.
+  // Internships (stage/intern) and academic end-of-studies projects (PFE/SFE) do NOT count.
+
+  const roles = extractRolesFromExperience(text);
+  if (roles.length > 0) {
+    return estimateProfessionalYearsFromRoles(roles);
+  }
+
+  // Fallback: use date intervals scoped to the experience section, but only if we don't see
+  // obvious internship markers (otherwise we'd be counting internships).
+  const scoped = extractLikelyExperienceText(text);
+  const explicit = parseExplicitYearsExperience(text);
+
+  const intervalEstimate = estimateProfessionalYearsFromIntervals({ scoped, fullText: text });
+  if (intervalEstimate !== null) return intervalEstimate;
+
+  // Last resort: accept explicit "X years experience" only when the CV does NOT look like internship-only.
+  if (explicit !== null && !isInternshipOrAcademicRoleText(text)) return explicit;
+  return null;
 }
 
 // ============================================================================
@@ -1006,53 +1101,66 @@ type ParsedRole = {
   textBlock: string;
 };
 
+function isProfessionalRole(role: ParsedRole): boolean {
+  return !isInternshipOrAcademicRoleText(`${role.title}\n${role.textBlock}`);
+}
+
+function extractProfessionalRoles(text: string): ParsedRole[] {
+  return extractRolesFromExperience(text).filter(isProfessionalRole);
+}
+
 function extractRolesFromExperience(text: string): ParsedRole[] {
   const experienceText = extractLikelyExperienceText(text);
   const lines = experienceText.split("\n");
   const roles: ParsedRole[] = [];
 
-  // Pattern to detect role/job title lines (usually followed by company/dates)
-  // Look for lines that contain job titles or date ranges
-  const dateRangeRe = /(?:(?:19|20)\d{2}|(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|janvier|fevrier|mars|avril|mai|juin|juillet|aout|septembre|octobre|novembre|decembre)[a-z]*)[^]*?(?:[-–—]|to|a)[^]*?(?:(?:19|20)\d{2}|present|current|aujourd|actuel|ce\s*jour|en\s*cours)/i;
+  function findBestTitleLine(beforeIndex: number): string {
+    for (let j = beforeIndex; j >= 0; j--) {
+      const candidate = lines[j]?.trim() ?? "";
+      if (!candidate) continue;
+      if (looksLikeSectionHeadingLine(candidate)) continue;
+      if (looksLikeSkillListLine(candidate)) continue;
+      return candidate;
+    }
+    return "";
+  }
 
   let currentRoleStart = -1;
   let currentTitle = "";
+
+  function pushRole(textBlock: string, title: string): void {
+    const intervals = extractDateIntervals(textBlock);
+    const merged = mergeIntervals(intervals);
+    const months = merged.reduce((sum, interval) => sum + (interval.end - interval.start), 0);
+    if (months <= 0) return;
+
+    const startMonthIndex = merged.at(0)?.start ?? 0;
+    const endMonthIndex = merged.at(-1)?.end ?? 0;
+    roles.push({
+      title,
+      startIndex: startMonthIndex,
+      endIndex: endMonthIndex,
+      months,
+      textBlock,
+    });
+  }
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]?.trim() ?? "";
     if (!line) continue;
 
-    // Check if this line contains a date range (likely start of a role)
-    if (dateRangeRe.test(line)) {
+    // Check if this line contains a date interval (likely part of a role header)
+    if (extractDateIntervals(line).length > 0) {
       // If we had a previous role, close it
       if (currentRoleStart >= 0 && currentTitle) {
         const textBlock = lines.slice(currentRoleStart, i).join("\n");
-        const intervals = extractDateIntervals(textBlock);
-        const merged = mergeIntervals(intervals);
-        const months = merged.reduce((sum, interval) => sum + (interval.end - interval.start), 0);
-
-        if (months > 0) {
-          const startMonthIndex = merged.at(0)?.start ?? 0;
-          const endMonthIndex = merged.at(-1)?.end ?? 0;
-          roles.push({
-            title: currentTitle,
-            startIndex: startMonthIndex,
-            endIndex: endMonthIndex,
-            months,
-            textBlock,
-          });
-        }
+        pushRole(textBlock, currentTitle);
       }
 
       // Extract title from this line or nearby lines
       // Title is usually on the same line or the line before
-      const titleCandidates = [
-        lines[i - 1]?.trim() ?? "",
-        line.replace(dateRangeRe, "").trim(),
-        lines[i - 2]?.trim() ?? "",
-      ].filter(Boolean);
-
-      currentTitle = titleCandidates.at(0) ?? "";
+      const titleCandidates = [findBestTitleLine(i - 1), findBestTitleLine(i - 2), line];
+      currentTitle = titleCandidates.find((t) => t.trim().length > 0) ?? "";
       currentRoleStart = i;
     }
   }
@@ -1060,21 +1168,7 @@ function extractRolesFromExperience(text: string): ParsedRole[] {
   // Close the last role
   if (currentRoleStart >= 0 && currentTitle) {
     const textBlock = lines.slice(currentRoleStart).join("\n");
-    const intervals = extractDateIntervals(textBlock);
-    const merged = mergeIntervals(intervals);
-    const months = merged.reduce((sum, interval) => sum + (interval.end - interval.start), 0);
-
-    if (months > 0) {
-      const startMonthIndex = merged.at(0)?.start ?? 0;
-      const endMonthIndex = merged.at(-1)?.end ?? 0;
-      roles.push({
-        title: currentTitle,
-        startIndex: startMonthIndex,
-        endIndex: endMonthIndex,
-        months,
-        textBlock,
-      });
-    }
+    pushRole(textBlock, currentTitle);
   }
 
   return roles;
@@ -1111,7 +1205,7 @@ export function extractRelevantExperience(
   text: string,
   relevanceKeywords: string[],
 ): RelevantExperienceResult {
-  const roles = extractRolesFromExperience(text);
+  const roles = extractProfessionalRoles(text);
   const totalYears = estimateYearsExperience(text);
 
   if (roles.length === 0) {
@@ -1211,7 +1305,7 @@ function assessContextQuality(text: string, skill: string, aliases: string[]): "
 }
 
 function isSkillInRecentRole(text: string, skill: string, aliases: string[]): boolean {
-  const roles = extractRolesFromExperience(text);
+  const roles = extractProfessionalRoles(text);
   const recentRoles = roles.filter((r) => getRoleRecency(r) !== "old");
 
   const terms = [skill, ...aliases];
@@ -1367,7 +1461,7 @@ function getSkillLastUsedYear(
   skill: string,
   aliases: string[],
 ): number | null {
-  const roles = extractRolesFromExperience(text);
+  const roles = extractProfessionalRoles(text);
   if (roles.length === 0) return null;
 
   const terms = [skill, ...aliases].map((t) => t.toLowerCase());
@@ -1418,7 +1512,7 @@ function categorizeRecency(lastUsedYear: number | null): {
 }
 
 function detectCareerTrajectory(text: string): CareerTrajectory {
-  const roles = extractRolesFromExperience(text);
+  const roles = extractProfessionalRoles(text);
   if (roles.length < 2) {
     return { trajectory: "unclear", evidence: ["Not enough roles to determine trajectory"], recentRoleLevel: "unknown" };
   }
@@ -1528,7 +1622,7 @@ type RoleWithDates = {
 };
 
 function extractRolesWithDates(text: string): RoleWithDates[] {
-  const roles = extractRolesFromExperience(text);
+  const roles = extractProfessionalRoles(text);
   return roles.map((r) => ({
     title: r.title,
     startMonthIndex: r.startIndex,
